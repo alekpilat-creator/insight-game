@@ -1,111 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Insight Engine</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background: linear-gradient(#1a0033, #000); color: white; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; overflow: hidden; }
-    #brain { width: 520px; height: 520px; max-width: 92vw; margin: 20px auto; filter: drop-shadow(0 0 80px #a855f7); animation: pulse 3s infinite alternate; }
-    @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.04); } }
-    h1 { font-size: 2.8em; margin:10px; text-shadow: 0 0 30px #a855f7; }
-    .coins { font-size: 4.5em; font-weight: bold; margin:15px; }
-    #bar { width: 90%; max-width: 460px; height: 56px; background:#111; border-radius: 28px; overflow:hidden; position:relative; margin:25px auto; }
-    #fill { height:100%; width:100%; background:linear-gradient(90deg,#a855f7,#ec4899); transition:width .4s; }
-    #energy { position:absolute; top:0; left:50%; transform:translateX(-50%); line-height:56px; font-size:2em; font-weight:bold; }
-    #tap { width:340px; height:340px; background:#a855f7; border-radius:50%; border:none; color:white; font-size:5em; font-weight:bold; box-shadow:0 0 90px #a855f7; cursor:pointer; margin:30px auto; transition:transform .1s; }
-    #tap:active { transform:scale(0.92); }
-    button { background:#22c55e; color:white; border:none; padding:18px 40px; border-radius:40px; font-size:1.6em; font-weight:bold; margin:12px; cursor:pointer; box-shadow:0 10px 30px rgba(34,197,94,.5); }
-    .boost { background:#fbbf24; color:black; }
+    body{margin:0;background:#000;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px;overflow:hidden}
+    #brain{width:520px;height:520px;max-width:92vw;filter:drop-shadow(0 0 90px #a855f7);animation:p 3s infinite alternate}
+    @keyframes p{0%{transform:scale(1)}100%{transform:scale(1.05)}}
+    h1{font-size:2.8em;text-shadow:0 0 30px #a855f7}
+    .coins{font-size:4.5em;font-weight:bold}
+    #bar{width:90%;max-width:460px;height:56px;background:#111;border-radius:28px;overflow:hidden;position:relative;margin:25px auto}
+    #fill{height:100%;background:linear-gradient(90deg,#a855f7,#ec4899);transition:.4s}
+    #energy{position:absolute;top:0;left:50%;transform:translateX(-50%);line-height:56px;font-size:2em;font-weight:bold}
+    #tap{width:340px;height:340px;background:#a855f7;border-radius:50%;border:none;color:#fff;font-size:5em;font-weight:bold;box-shadow:0 0 90px #a855f7;cursor:pointer;margin:30px auto}
+    #tap:active{transform:scale(0.92)}
+    button{background:#22c55e;color:#fff;border:none;padding:18px 40px;border-radius:40px;font-size:1.6em;margin:10px;cursor:pointer}
+    .boost{background:#fbbf24;color:#000}
   </style>
 </head>
 <body>
   <h1>Insight Engine</h1>
-  <img id="brain" src="brain.jpg" alt="Brain">
-
+  <img id="brain" src="brain.jpg">
   <div class="coins"><span id="coins">0</span> $INSIGHT</div>
-
-  <div id="bar">
-    <div id="fill"></div>
-    <div id="energy">1000 / 1000</div>
-  </div>
-
+  <div id="bar"><div id="fill"></div><div id="energy">1000 / 1000</div></div>
   <button id="tap">TAP</button>
   <button class="boost" onclick="buyBoost()">Boost ×2 (500 Stars)</button>
-  <button onclick="invite()">Invite Friends (+10k)</button>
+  <button onclick="invite()">Invite Friends</button>
 
   <script>
-    let coins = 0;
-    let energy = 1000;
-    const maxEnergy = 1000;
-
+    let coins = 0, energy = 1000, max = 1000;
     function update() {
       document.getElementById('coins').textContent = coins.toLocaleString();
-      document.getElementById('energy').textContent = energy + ' / ' + maxEnergy;
-      document.getElementById('fill').style.width = (energy/maxEnergy*100) + '%';
-      if (window.Telegram?.WebApp?.MainButton) {
-        window.Telegram.WebApp.MainButton.setText(`Withdraw ${coins.toLocaleString()} $INSIGHT`);
-      }
+      document.getElementById('energy').textContent = energy + ' / ' + max;
+      document.getElementById('fill').style.width = (energy/max*100)+'%';
+      if (window.Telegram?.WebApp?.MainButton) Telegram.WebApp.MainButton.setText(`Withdraw ${coins.toLocaleString()} $INSIGHT`);
     }
-
-    // refill energii
-    setInterval(() => {
-      if (energy < maxEnergy) {
-        energy = Math.min(energy + 3, maxEnergy);
-        update();
-      }
-    }, 1000);
-
-    // tap
+    setInterval(()=>{if(energy<max){energy+=3;update();}},1000);
     document.getElementById('tap').onclick = () => {
       if (energy >= 1) {
-        if (window.Telegram?.WebApp?.HapticFeedback) {
-          window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
-        }
-        coins++;
-        energy--;
-        update();
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+        coins++; energy--; update();
       }
     };
-
-    // Stars boost
     function buyBoost() {
-      if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.openInvoice({
-          title: 'Multitap Boost ×2',
-          description: 'Double your earnings forever!',
-          payload: 'boost_x2',
-          provider_token: '',
-          currency: 'XTR',
-          prices: [{ label: '×2 Tap Power', amount: 500 }]
-        });
-      } else {
-        alert('Boost available in Telegram!');
-      }
+      if (window.Telegram?.WebApp) Telegram.WebApp.openInvoice({title:'Boost ×2',description:'Double tap power!',payload:'boost',provider_token:'',currency:'XTR',prices:[{label:'Boost',amount:500}]});
+      else alert('Boost tylko w Telegramie!');
     }
-
-    // Invite
     function invite() {
       const ref = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'ref';
-      if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.shareUrl(`https://t.me/InsightEngineBot?start=${ref}`, 'Join Insight Engine – get 10 000 $INSIGHT bonus!');
-      } else {
-        alert('Invite in Telegram!');
-      }
+      if (window.Telegram?.WebApp) Telegram.WebApp.shareUrl(`https://t.me/InsightEngineBot?start=${ref}`,'Dołącz i zgarnij 10k $INSIGHT!');
     }
-
-    // Telegram init (fallback for browser)
     if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
-      window.Telegram.WebApp.MainButton.show();
-      window.Telegram.WebApp.MainButton.onClick(() => {
-        window.Telegram.WebApp.showAlert('Airdrop coming soon!');
-      });
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      Telegram.WebApp.MainButton.show();
     }
-
     update();
   </script>
 </body>
