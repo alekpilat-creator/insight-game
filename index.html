@@ -1,1 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Neuron Merge</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:system-ui; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; overflow:hidden; position:relative; }
+    h1 { font-size:2.5em; margin:20px; text-shadow:0 0 40px #a855f7; }
+    .coins { font-size:3em; margin:20px; text-shadow:0 0 20px #ec4899; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; max-width:90vw; margin:20px auto; }
+    .neuron { width:70px; height:70px; background:#a855f7; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.8em; font-weight:bold; box-shadow:0 0 30px #a855f7; cursor:pointer; transition:all .3s ease; }
+    .neuron:active { transform:scale(1.2); box-shadow:0 0 60px #ec4899; }
+    .level2 { background:#ec4899; }
+    .level3 { background:#22c55e; }
+    .level4 { background:#fbbf24; }
+    .particle { position:absolute; width:10px; height:10px; background:#ec4899; border-radius:50%; pointer-events:none; animation:particle 1s ease-out forwards; }
+    @keyframes particle { 0% { transform:scale(0); opacity:1; } 100% { transform:translate(var(--dx), var(--dy)) scale(0); opacity:0; } }
+    button { background:#22c55e; color:#fff; border:none; padding:15px 30px; border-radius:30px; font-size:1.5em; margin:10px; cursor:pointer; box-shadow:0 0 30px #22c55e; }
+    .boost { background:#fbbf24; color:#000; }
+  </style>
+</head>
+<body>
+  <h1>Neuron Merge</h1>
+  <div class="coins">$NEURON: <span id="coins">0</span></div>
+  <div class="grid" id="grid"></div>
+  <button onclick="spawnNeuron()">Spawn Neuron</button>
+  <button class="boost" onclick="buyBoost()">Boost (500 Stars)</button>
 
+  <script>
+    let coins = 0;
+    const grid = document.getElementById('grid');
+    const cells = Array(16).fill(null);
+
+    function updateCoins() {
+      document.getElementById('coins').textContent = coins;
+    }
+
+    function spawnNeuron() {
+      const emptyIndex = cells.findIndex(c => c === null);
+      if (emptyIndex !== -1) {
+        const level = 1;
+        const cell = document.createElement('div');
+        cell.className = `neuron level${level}`;
+        cell.textContent = level;
+        cell.dataset.level = level;
+        cell.onclick = () => selectNeuron(emptyIndex);
+        grid.appendChild(cell);
+        cells[emptyIndex] = { level, element: cell };
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      }
+    }
+
+    let selected = null;
+    function selectNeuron(index) {
+      if (selected === null) {
+        selected = index;
+      } else if (selected !== index && cells[selected].level === cells[index].level) {
+        merge(selected, index);
+        selected = null;
+      } else {
+        selected = null;
+      }
+    }
+
+    function merge(i1, i2) {
+      const newLevel = cells[i1].level + 1;
+      coins += newLevel * 100;
+      updateCoins();
+
+      // Particle effect
+      const pos1 = cells[i1].element.getBoundingClientRect();
+      for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = pos1.left + 'px';
+        p.style.top = pos1.top + 'px';
+        p.style.setProperty('--dx', (Math.random() - 0.5) * 200 + 'px');
+        p.style.setProperty('--dy', (Math.random() - 0.5) * 200 + 'px');
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+      }
+
+      grid.removeChild(cells[i1].element);
+      grid.removeChild(cells[i2].element);
+      cells[i1] = null;
+      cells[i2] = null;
+
+      const empty = cells.findIndex(c => c === null);
+      if (empty !== -1) {
+        const cell = document.createElement('div');
+        cell.className = `neuron level${newLevel}`;
+        cell.textContent = newLevel;
+        cell.dataset.level = newLevel;
+        cell.onclick = () => selectNeuron(empty);
+        grid.appendChild(cell);
+        cells[empty] = { level: newLevel, element: cell };
+      }
+
+      if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+    }
+
+    function buyBoost() {
+      if (window.Telegram?.WebApp) Telegram.WebApp.openInvoice({title:'Boost',currency:'XTR',prices:[{label:'Boost',amount:500}]});
+    }
+
+    // Initial
+    for (let i = 0; i < 4; i++) spawnNeuron();
+
+    if (window.Telegram?.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      Telegram.WebApp.MainButton.show();
+    }
+    updateCoins();
+  </script>
+</body>
+</html>
