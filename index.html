@@ -1,1 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Merge Neurons</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:system-ui; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; overflow:hidden; }
+    h1 { font-size:2.8em; margin:10px; text-shadow:0 0 40px #a855f7; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; max-width:400px; margin:20px auto; }
+    .neuron { width:80px; height:80px; background:#a855f7; border-radius:50%; cursor:pointer; transition:all .3s; box-shadow:0 0 20px #a855f7; font-size:1.5em; line-height:80px; font-weight:bold; }
+    .neuron:hover { transform:scale(1.1); box-shadow:0 0 40px #ec4899; }
+    .level1 { background:#a855f7; }
+    .level2 { background:#ec4899; }
+    .level3 { background:#22c55e; }
+    .level4 { background:#fbbf24; }
+    .coins { font-size:4em; font-weight:bold; margin:20px 0; }
+    button { background:#22c55e; color:#fff; border:none; padding:15px 40px; border-radius:40px; font-size:1.6em; margin:10px; cursor:pointer; }
+    .boost { background:#fbbf24; color:#000; }
+    #merge-effect { position:absolute; font-size:3em; color:#ec4899; pointer-events:none; animation:merge 1s ease-out; }
+    @keyframes merge { 0% { transform:scale(0); opacity:1; } 100% { transform:scale(2); opacity:0; } }
+  </style>
+</head>
+<body>
+  <h1>Merge Neurons</h1>
+  <div class="coins"><span id="coins">0</span> $NEURON</div>
+  <div class="grid" id="grid"></div>
+  <button onclick="spawnNeuron()">Spawn Neuron (Free)</button>
+  <button class="boost" onclick="buyBoost()">Auto-Merge (500 Stars)</button>
 
+  <script>
+    let coins = 0, neurons = [];
+    const levels = ['level1', 'level2', 'level3', 'level4'];
+    const gridSize = 16;
+
+    function updateCoins() {
+      document.getElementById('coins').textContent = coins.toLocaleString();
+    }
+
+    function spawnNeuron() {
+      if (neurons.length < gridSize) {
+        const neuron = { level: 1, x: Math.floor(Math.random()*4), y: Math.floor(Math.random()*4) };
+        neurons.push(neuron);
+        renderGrid();
+        if (window.Telegram?.WebApp) Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      }
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < gridSize; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'neuron';
+        cell.onclick = () => mergeNeurons(i);
+        grid.appendChild(cell);
+      }
+      neurons.forEach((n, i) => {
+        const cell = grid.children[n.x + n.y*4];
+        cell.className = `neuron ${levels[n.level-1]}`;
+        cell.textContent = n.level;
+      });
+    }
+
+    function mergeNeurons(index) {
+      const neuron = neurons[index];
+      if (neuron) {
+        coins += neuron.level * 10;
+        updateCoins();
+        createMergeEffect();
+        neurons.splice(index, 1);
+        if (neurons.length < gridSize - 1) spawnNeuron();
+        renderGrid();
+        if (window.Telegram?.WebApp) Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+      }
+    }
+
+    function createMergeEffect() {
+      const effect = document.createElement('div');
+      effect.id = 'merge-effect';
+      effect.textContent = '+10';
+      effect.style.left = Math.random() * 100 + 'vw';
+      effect.style.top = Math.random() * 100 + 'vh';
+      document.body.appendChild(effect);
+      setTimeout(() => effect.remove(), 1000);
+    }
+
+    function buyBoost() {
+      if (window.Telegram?.WebApp) {
+        Telegram.WebApp.openInvoice({
+          title: 'Auto-Merge Boost',
+          description: 'Spawn 5 neurons instantly!',
+          payload: 'boost',
+          provider_token: '',
+          currency: 'XTR',
+          prices: [{ label: 'Boost', amount: 500 }]
+        });
+      }
+    }
+
+    if (window.Telegram?.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      Telegram.WebApp.MainButton.setText('Claim $NEURON');
+      Telegram.WebApp.MainButton.show();
+    }
+    renderGrid();
+    updateCoins();
+  </script>
+</body>
+</html>
