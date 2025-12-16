@@ -1,1 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Neuron Merge</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
+  <style>
+    body { margin:0; padding:0; background:#000; overflow:hidden; }
+    #game { width:100vw; height:100vh; position:absolute; top:0; left:0; }
+    .ui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:20px; }
+    h1 { font-size:2.5em; color:#a855f7; text-shadow:0 0 30px #ec4899; margin:10px; }
+    .coins { font-size:3em; color:#fff; margin:10px; text-shadow:0 0 20px #a855f7; }
+    button { pointer-events:auto; background:#22c55e; color:#fff; border:none; padding:15px 30px; border-radius:30px; font-size:1.5em; margin:10px; cursor:pointer; box-shadow:0 0 30px #22c55e; }
+    .boost { background:#fbbf24; color:#000; box-shadow:0 0 30px #fbbf24; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div class="ui">
+    <h1>Neuron Merge</h1>
+    <div class="coins">$NEURON: <span id="coins">0</span></div>
+    <button onclick="spawnNeuron()">Spawn Neuron</button>
+    <button class="boost" onclick="buyBoost()">Auto Merge (500 Stars)</button>
+  </div>
+
+  <script>
+    let coins = 0;
+    const app = new PIXI.Application({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      backgroundColor: 0x000000,
+      antialias: true
+    });
+    document.getElementById('game').appendChild(app.view);
+
+    const container = new PIXI.Container();
+    app.stage.addChild(container);
+
+    const neurons = [];
+
+    class Neuron {
+      constructor(level = 1) {
+        this.level = level;
+        this.graphics = new PIXI.Graphics();
+        this.draw();
+        this.graphics.interactive = true;
+        this.graphics.buttonMode = true;
+        this.graphics.x = Math.random() * (app.screen.width - 100) + 50;
+        this.graphics.y = app.screen.height - 200;
+        this.graphics
+          .on('pointerdown', this.onDragStart, this)
+          .on('pointerup', this.onDragEnd, this)
+          .on('pointerupoutside', this.onDragEnd, this)
+          .on('pointermove', this.onDragMove, this);
+        container.addChild(this.graphics);
+        neurons.push(this);
+      }
+
+      draw() {
+        const colors = [0xa855f7, 0xec4899, 0x22c55e, 0xfbbf24, 0xf72585];
+        const color = colors[this.level - 1] || 0xf72585;
+        this.graphics.clear();
+        this.graphics.beginFill(color, 0.8);
+        this.graphics.drawCircle(0, 0, 40 + this.level * 10);
+        this.graphics.endFill();
+        this.graphics.lineStyle(4, color, 1);
+        this.graphics.drawCircle(0, 0, 40 + this.level * 10);
+        const text = new PIXI.Text(this.level, { fontSize: 30, fill: '#fff', fontWeight: 'bold' });
+        text.anchor.set(0.5);
+        this.graphics.addChild(text);
+      }
+
+      onDragStart(event) {
+        this.data = event.data;
+        this.alpha = 0.7;
+        this.dragging = true;
+        this.scale.set(1.2);
+      }
+
+      onDragEnd() {
+        this.alpha = 1;
+        this.dragging = false;
+        this.data = null;
+        this.scale.set(1);
+        this.checkMerge();
+      }
+
+      onDragMove() {
+        if (this.dragging) {
+          const newPosition = this.data.getLocalPosition(this.graphics.parent);
+          this.graphics.x = newPosition.x;
+          this.graphics.y = newPosition.y;
+        }
+      }
+
+      checkMerge() {
+        for (let other of neurons) {
+          if (other !== this && other.level === this.level) {
+            const dist = Math.hypot(this.graphics.x - other.graphics.x, this.graphics.y - other.graphics.y);
+            if (dist < 100) {
+              this.merge(other);
+              break;
+            }
+          }
+        }
+      }
+
+      merge(other) {
+        coins += this.level * 100;
+        document.getElementById('coins').textContent = coins.toLocaleString();
+
+        // Particle effect przy merge (jak Catizen)
+        const emitter = new PIXI.Container();
+        app.stage.addChild(emitter);
+        for (let i = 0; i < 50; i++) {
+          const particle = new PIXI.Graphics();
+          particle.beginFill(0xec4899);
+          particle.drawCircle(0, 0, Math.random() * 10 + 5);
+          particle.endFill();
+          particle.x = this.graphics.x;
+          particle.y = this.graphics.y;
+          particle.vx = Math.random() * 20 - 10;
+          particle.vy = Math.random() * 20 - 10;
+          emitter.addChild(particle);
+          app.ticker.add((delta) => {
+            particle.x += particle.vx * delta;
+            particle.y += particle.vy * delta;
+            particle.alpha -= 0.02;
+            if (particle.alpha <= 0) emitter.removeChild(particle);
+          });
+        }
+
+        // Usuń stare, stwórz nowy wyższy level
+        container.removeChild(this.graphics);
+        container.removeChild(other.graphics);
+        neurons.splice(neurons.indexOf(this), 1);
+        neurons.splice(neurons.indexOf(other), 1);
+        new Neuron(this.level + 1);
+
+        if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+      }
+    }
+
+    function spawnNeuron() {
+      new Neuron();
+    }
+
+    function buyBoost() {
+      if (window.Telegram?.WebApp) {
+        Telegram.WebApp.openInvoice({
+          title: 'Auto Merge Boost',
+          description: 'Spawn 5 neurons instantly!',
+          payload: 'boost_merge',
+          provider_token: '',
+          currency: 'XTR',
+          prices: [{ label: 'Boost', amount: 500 }]
+        });
+      }
+    }
+
+    // Initial spawn
+    for (let i = 0; i < 5; i++) spawnNeuron();
+
+    // Telegram init
+    if (window.Telegram?.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      Telegram.WebApp.MainButton.show();
+      Telegram.WebApp.MainButton.setText('Claim $NEURON');
+    }
+
+    // Resize
+    window.addEventListener('resize', () => {
+      app.renderer.resize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
 
