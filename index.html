@@ -1,1 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>2048 Puzzle</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- AdsGram SDK - ZAREJESTRUJ NA https://partner.adsgram.ai/ i wklej SWÓJ blockId -->
+  <script src="https://sad.adsgram.ai/js/sad.min.js"></script> [](grok_render_citation_card_json={"cardIds":["9ea57b","d3db07"]})
+  <style>
+    body { margin:0; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; font-family:system-ui; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; overflow:hidden; touch-action:none; }
+    h1 { font-size:2.5em; margin:10px; text-shadow:0 0 20px rgba(255,255,255,0.5); }
+    .score { font-size:2em; margin:10px; }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; width:320px; height:320px; background:rgba(255,255,255,0.1); padding:10px; border-radius:15px; box-shadow:0 20px 40px rgba(0,0,0,0.3); margin:20px auto; }
+    .tile { background:#bbada0; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.5em; font-weight:bold; font-family:monospace; transition:all 0.2s ease; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
+    .tile-2 { background:#eee4da; color:#776e65; }
+    .tile-4 { background:#ede0c8; color:#776e65; }
+    .tile-8 { background:#f2b179; color:#fff; }
+    .tile-16 { background:#f59563; color:#fff; }
+    .tile-32 { background:#f67c5f; color:#fff; }
+    .tile-64 { background:#f65e3b; color:#fff; }
+    .tile-128 { background:#edcf72; color:#fff; font-size:1.2em; }
+    .tile-256 { background:#edcc61; color:#fff; font-size:1.2em; }
+    .tile-512 { background:#edc850; color:#fff; font-size:1.2em; }
+    .tile-1024 { background:#edc53f; color:#fff; font-size:1em; }
+    .tile-2048 { background:#edc22e; color:#fff; font-size:1em; }
+    button { background:#4ecdc4; color:#fff; border:none; padding:15px 30px; border-radius:25px; font-size:1.5em; margin:10px; cursor:pointer; box-shadow:0 10px 20px rgba(0,0,0,0.2); transition:0.3s; }
+    button:active { transform:scale(0.95); }
+    .ad-btn { background:#ff6b6b; }
+    .game-over { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.8); padding:40px; border-radius:20px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <h1>🧩 2048 Puzzle</h1>
+  <div class="score">Score: <span id="score">0</span></div>
+  <div class="grid" id="grid"></div>
+  <button onclick="restart()">New Game</button>
+  <button class="ad-btn" onclick="showRewardedAd()" id="adBtn">Watch Ad to Continue</button>
 
+  <div class="game-over hidden" id="gameOver">
+    <h2>Game Over!</h2>
+    <p>Final Score: <span id="finalScore">0</span></p>
+    <button onclick="restart()">New Game</button>
+    <button class="ad-btn" onclick="showRewardedAd()">Watch Ad to Continue (+1000 Bonus!)</button>
+  </div>
+
+  <script>
+    // Gra 2048 - lekka, zero lag, idealna na mobile/Telegram
+    let board = Array(4).fill().map(() => Array(4).fill(0));
+    let score = 0;
+    let gameOver = false;
+    let AdController = null;
+
+    // Inicjalizacja AdsGram SDK (wklej SWÓJ blockId z https://partner.adsgram.ai/)
+    if (window.Adsgram) {
+      AdController = window.Adsgram.init({
+        blockId: 'YOUR_BLOCK_ID_HERE'  // Zmień na swój!
+      });
+    }
+
+    function updateScore() {
+      document.getElementById('score').textContent = score;
+      document.getElementById('finalScore').textContent = score;
+    }
+
+    function addTile() {
+      let empty = [];
+      for (let i=0; i<4; i++) for (let j=0; j<4; j++) if (board[i][j] === 0) empty.push([i,j]);
+      if (empty.length) {
+        let [x,y] = empty[Math.floor(Math.random()*empty.length)];
+        board[x][y] = Math.random() < 0.9 ? 2 : 4;
+      }
+    }
+
+    function slide(row) {
+      let newRow = row.filter(x => x !== 0);
+      for (let i=0; i<newRow.length-1; i++) {
+        if (newRow[i] === newRow[i+1]) {
+          newRow[i] *= 2;
+          score += newRow[i];
+          newRow[i+1] = 0;
+          if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        }
+      }
+      newRow = newRow.filter(x => x !== 0);
+      while (newRow.length < 4) newRow.push(0);
+      return newRow;
+    }
+
+    function move(dir) {
+      let moved = false;
+      if (dir === 'left') {
+        for (let i=0; i<4; i++) {
+          let newRow = slide(board[i]);
+          if (newRow.join() !== board[i].join()) moved = true;
+          board[i] = newRow;
+        }
+      } else if (dir === 'right') {
+        for (let i=0; i<4; i++) {
+          let newRow = slide(board[i].reverse()).reverse();
+          if (newRow.join() !== board[i].join()) moved = true;
+          board[i] = newRow;
+        }
+      } else if (dir === 'up') {
+        for (let j=0; j<4; j++) {
+          let col = [board[0][j], board[1][j], board[2][j], board[3][j]];
+          let newCol = slide(col);
+          if (newCol.join() !== col.join()) moved = true;
+          for (let i=0; i<4; i++) board[i][j] = newCol[i];
+        }
+      } else if (dir === 'down') {
+        for (let j=0; j<4; j++) {
+          let col = [board[3][j], board[2][j], board[1][j], board[0][j]];
+          let newCol = slide(col).reverse();
+          if (newCol.join(' ') !== col.reverse().join(' ')) moved = true;
+          for (let i=0; i<4; i++) board[i][j] = newCol[i];
+        }
+      }
+      if (moved) {
+        addTile();
+        render();
+        updateScore();
+        checkGameOver();
+      }
+    }
+
+    function render() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (let i=0; i<4; i++) {
+        for (let j=0; j<4; j++) {
+          let tile = document.createElement('div');
+          tile.className = `tile tile-${board[i][j] || ''}`;
+          tile.textContent = board[i][j] || '';
+          grid.appendChild(tile);
+        }
+      }
+    }
+
+    function checkGameOver() {
+      for (let i=0; i<4; i++) for (let j=0; j<4; j++) {
+        if (board[i][j] === 0) return;
+        if (i<3 && board[i][j] === board[i+1][j]) return;
+        if (j<3 && board[i][j] === board[i][j+1]) return;
+      }
+      gameOver = true;
+      document.getElementById('gameOver').classList.remove('hidden');
+      document.getElementById('adBtn').classList.remove('hidden');
+    }
+
+    function restart() {
+      board = Array(4).fill().map(() => Array(4).fill(0));
+      score = 0;
+      gameOver = false;
+      addTile();
+      addTile();
+      render();
+      updateScore();
+      document.getElementById('gameOver').classList.add('hidden');
+      document.getElementById('adBtn').classList.add('hidden');
+    }
+
+    async function showRewardedAd() {
+      if (!AdController) {
+        alert('SDK nie zainicjalizowany - wklej blockId!');
+        return;
+      }
+      document.querySelectorAll('button').forEach(b => b.disabled = true);
+      try {
+        const result = await AdController.show();
+        if (result.done) {
+          // Reward: kontynuuj grę + bonus
+          score += 1000;
+          restart();  // Lub tylko reset bez new game
+          if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+          alert('Reklama obejrzana! +1000 pkt i kontynuacja gry! 💰');
+        }
+      } catch (err) {
+        console.warn('Ad error:', err);
+        alert('Reklama niedostępna - spróbuj później.');
+      } finally {
+        document.querySelectorAll('button').forEach(b => b.disabled = false);
+      }
+    }
+
+    // Swipe detection
+    let startX, startY;
+    document.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    });
+    document.addEventListener('touchend', e => {
+      if (!startX || gameOver) return;
+      let deltaX = e.changedTouches[0].clientX - startX;
+      let deltaY = e.changedTouches[0].clientY - startY;
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+        move(deltaX > 0 ? 'right' : 'left');
+      } else if (Math.abs(deltaY) > 30) {
+        move(deltaY > 0 ? 'down' : 'up');
+      }
+      startX = startY = 0;
+    });
+
+    // Keyboard (desktop test)
+    document.addEventListener('keydown', e => {
+      if (gameOver) return;
+      if (e.key === 'ArrowLeft') move('left');
+      else if (e.key === 'ArrowRight') move('right');
+      else if (e.key === 'ArrowUp') move('up');
+      else if (e.key === 'ArrowDown') move('down');
+    });
+
+    // Telegram init
+    if (window.Telegram?.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      Telegram.WebApp.MainButton.setText('New Game').show().onClick(restart);
+    }
+
+    // Start
+    restart();
+  </script>
+</body>
+</html>
